@@ -1,7 +1,3 @@
-import pytest
-
-from entitled.exceptions import AuthorizationException
-from tests.test_policies import node_policy
 from tests.test_rules import can_edit, is_admin, is_guest, is_member
 from tests.testmodels import Node, Role, Tenant, User
 
@@ -27,12 +23,3 @@ def test_rules():
 
     assert can_edit(admin_user, node)
     assert can_edit(normal_user, node)
-
-
-def test_policy():
-
-    assert node_policy.allows(admin_user, "edit", node)
-    assert node_policy.allows(normal_user, "edit", node)
-    assert not node_policy.allows(guest_user, "edit", node)
-    with pytest.raises(AuthorizationException):
-        node_policy.authorize(guest_user, "edit", node)
