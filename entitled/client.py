@@ -33,7 +33,7 @@ class Client:
     def register_policy(self, policy: policies.Policy):
         if hasattr(policy, "__orig_class__"):
             resource_type = getattr(policy, "__orig_class__").__args__[0]
-            if not resource_type in self._policy_registrar:
+            if resource_type not in self._policy_registrar:
                 self._policy_registrar[resource_type] = policy
             else:
                 raise ValueError(
@@ -70,7 +70,7 @@ class Client:
                     pass
 
     def _policy_lookup(self, resource) -> policies.Policy:
-        if not type(resource) in self._policy_registrar:
+        if type(resource) not in self._policy_registrar:
             raise ValueError("No policy registered for this resource type")
 
         return self._policy_registrar[type(resource)]

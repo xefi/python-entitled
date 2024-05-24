@@ -1,12 +1,12 @@
 [tool.poetry]
-name = "python-entitled"
+name = "entitled"
 version = "0.1.0"
-description = ""
+description = "A library to make writing, enforcing and auditing your authorization policies a breeze"
 authors = ["Mathias Bigaignon <m.bigaignon@xefi.fr>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "^3.11"
 result = "^0.16.1"
 
 [tool.poetry.group.dev.dependencies]
@@ -26,7 +26,7 @@ ignore-patterns = ["^tests", "^test_*"]
 jobs = 4
 limit-inference-results = 100
 persistent = true
-py-version = "3.12"
+py-version = "3.11"
 suggestion-mode = true
 
 [tool.pylint.basic]

@@ -58,7 +58,7 @@ class Policy(typing.Generic[T]):
         resource: T,
         context: typing.Optional[dict] = None,
     ) -> bool:
-        if not action in self._registry:
+        if action not in self._registry:
             raise exceptions.UndefinedAction(
                 f"Action <{action}> undefined for this policy"
             )
