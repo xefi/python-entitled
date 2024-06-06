@@ -15,6 +15,7 @@ mypy = "^1.9.0"
 pre-commit = "^3.7.0"
 pytest = "^8.1.1"
 pylint = "^3.1.0"
+factory-boy = "^3.3.0"
 
 [tool.isort]
 profile = "black"
@@ -61,7 +62,8 @@ disable = [
     "use-implicit-booleaness-not-comparison-to-zero",
     "use-symbolic-message-instead",
     "typevar-name-incorrect-variance",
-    "missing-function-docstring"
+    "missing-function-docstring",
+    "too-few-public-methods"
 ]
 
 [tool.pylint.reports]
