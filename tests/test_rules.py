@@ -1,43 +1,45 @@
-from entitled.roles import Role
-from entitled.rules import Rule
-from tests.testmodels import Node, Tenant, User
+from typing import Any
 
-is_member = Rule[User, Tenant](
-    "is_member", lambda actor, resource, context: actor.tenant == resource
-)
+import pytest
 
-is_admin = Rule[User, Tenant](
-    "is_admin",
-    lambda actor, resource, context: is_member(actor, resource)
-    and Role("admin") in actor.roles,
-)
+from entitled.rules import Rule, rule
+from tests.fixtures.models import Tenant, User
 
-is_guest = Rule[User, Tenant](
-    "is_guest",
-    lambda actor, resource, context: is_member(actor, resource)
-    and Role("guest") in actor.roles,
-)
 
-has_role = Rule[User, Tenant](
-    "has_role",
-    lambda actor, resource, context: "role" in context.keys()
-    and is_member(actor, resource)
-    and Role(context["role"]) in actor.roles,
-)
+class TestRuleCreation:
+    def setup_method(self):
+        Rule.clear_registry()
 
-can_edit = Rule[User, Node](
-    "can_edit",
-    lambda actor, resource, context: is_admin(actor, resource.tenant)
-    or (is_member(actor, resource.tenant) and resource.owner == actor),
-)
+    def test_create_with_constructor(self):
+        def is_member(
+            actor: User, resource: Tenant, context: dict[str, Any] | None = None
+        ) -> bool:
+            return actor.tenant == resource
 
-is_admin_on_node = Rule[User, Node](
-    "is_admin_on_node",
-    lambda actor, resource, context: is_admin(actor, resource.tenant),
-)
+        new_rule = Rule[Tenant]("is_member", is_member)
 
-is_owner = Rule[User, Node](
-    "is_owner",
-    lambda actor, resource, context: is_member(actor, resource.tenant)
-    and resource.owner == actor,
-)
+        assert Rule._registry["is_member"] == new_rule
+
+    def test_create_with_decorator(self):
+        @rule("is_member")
+        def is_member(
+            actor: User, resource: Tenant, context: dict[str, Any] | None = None
+        ) -> bool:
+            return actor.tenant == resource
+
+        assert Rule._registry["is_member"].name == "is_member"
+
+    def test_create_with_same_name(self):
+        @rule("is_member")
+        def is_member(
+            actor: User, resource: Tenant, context: dict[str, Any] | None = None
+        ) -> bool:
+            return actor.tenant == resource
+
+        with pytest.raises(ValueError):
+
+            @rule("is_member")
+            def another_rule(
+                actor: User, resource: Tenant, context: dict[str, Any] | None = None
+            ) -> bool:
+                return True
