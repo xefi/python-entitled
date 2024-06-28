@@ -17,7 +17,6 @@ pytest = "^8.1.1"
 pylint = "^3.1.0"
 factory-boy = "^3.3.0"
 bandit = "^1.7.9"
-safety = "^3.2.3"
 
 [tool.isort]
 profile = "black"

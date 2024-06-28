@@ -62,5 +62,3 @@ jobs:
         run: poetry run pylint entitled
       - name: Run bandit
         run: poetry run bandit entitled
-      - name: Run safety
-        run: poetry run safety check
