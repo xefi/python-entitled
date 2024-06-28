@@ -1,43 +1,84 @@
-import pytest
+from typing import Any
 
-from entitled.exceptions import AuthorizationException
 from entitled.policies import Policy
 from entitled.rules import Rule
-from tests.test_rules import can_edit, is_admin_on_node, is_member, is_owner
-from tests.testmodels import Node, Role, Tenant, User
-
-org = Tenant(name="Eddy")
-admin_user = User(name="mathias", tenant=org, roles=set([Role("admin")]))
-
-normal_user = User(name="hugo", tenant=org)
-guest_user = User(name="gautier", tenant=org, roles=set([Role("guest")]))
+from tests.fixtures.models import Tenant, User
 
 
-node = Node(name="root", owner=normal_user, tenant=org)
+class TestPolicyCreation:
+    def teardown_method(self):
+        Rule.clear_registry()
+
+    def test_policy_creation(self):
+        policy = Policy("my_policy")
+        assert policy.label == "my_policy"
+        assert policy._registry == {}
+
+    def test_register_rule_decorator(self):
+        policy = Policy[Tenant]("my_policy")
+
+        @policy.rule("is_member")
+        def is_member(
+            actor: User, resource: Tenant, context: dict[str, Any] | None = None
+        ) -> bool:
+            return actor.tenant == resource
+
+        assert policy.label == "my_policy"
+        assert policy._registry["is_member"][0].name == "my_policy:is_member"
+        rule = Rule.get_rule("my_policy:is_member")
+        assert rule is not None
+        assert not rule.name == "is_member"
+
+    def test_register_rule_function(self):
+        policy = Policy[Tenant]("my_policy")
+
+        @policy.rule("is_member")
+        def is_member(
+            actor: User, resource: Tenant, context: dict[str, Any] | None = None
+        ) -> bool:
+            return actor.tenant == resource
+
+        assert policy.label == "my_policy"
+        assert policy._registry["is_member"][0].name == "my_policy:is_member"
+        rule = Rule.get_rule("my_policy:is_member")
+        assert rule is not None
+        assert not rule.name == "is_member"
 
 
-@pytest.fixture
-def testing_policy():
-    return Policy[Node](
-        {
-            "edit": [can_edit],
-            "delete": [is_owner | is_admin_on_node],
-            "view": [
-                Rule[User, Node](
-                    "is_viewer",
-                    lambda actor, resource, context: is_member(actor, resource.tenant),
-                )
-            ],
-        }
-    )
+class TestPolicyAuthorization:
+    def teardown_method(self):
+        Rule.clear_registry()
 
+    def test_list_grants(self):
+        policy = Policy[Tenant]("tenant")
 
-def test_policy_allows(testing_policy):
-    assert testing_policy.allows(admin_user, "edit", node)
-    assert testing_policy.allows(normal_user, "edit", node)
-    assert not testing_policy.allows(guest_user, "edit", node)
+        @policy.rule("is_member")
+        def is_member(
+            actor: User, resource: Tenant, context: dict[str, Any] | None = None
+        ) -> bool:
+            return actor.tenant == resource
 
+        @policy.rule("has_admin_role")
+        def has_admin_role(
+            actor: User, resource: Tenant, context: dict[str, Any] | None = None
+        ) -> bool:
+            return "admin" in actor.roles
 
-def test_policy_authorize(testing_policy):
-    with pytest.raises(AuthorizationException):
-        testing_policy.authorize(guest_user, "edit", node)
+        @policy.rule("is_tenant_admin")
+        def is_tenant_admin(
+            actor: User, resource: Tenant, context: dict[str, Any] | None = None
+        ) -> bool:
+            return is_member(actor, resource, context) and has_admin_role(
+                actor, resource, context
+            )
+
+        tenant1 = Tenant(name="tenant1")
+        admin_role = "admin"
+        guest_role = "user"
+        user1 = User(name="user1", tenant=tenant1, roles=set([admin_role]))
+        user2 = User(name="user2", tenant=tenant1, roles=set([guest_role]))
+
+        assert ["is_member", "has_admin_role", "is_tenant_admin"] == [
+            item for item in policy.grants(user1, tenant1)
+        ]
+        assert ["is_member"] == [item for item in policy.grants(user2, tenant1)]

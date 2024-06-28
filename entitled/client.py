@@ -16,19 +16,17 @@ class Client:
         self._load_path = pathlib.Path(base_path)
         self.load_policies_from_path(self._load_path)
 
-    def authorize(self, actor, action, resource, context: typing.Optional[dict] = None):
+    def authorize(self, actor, action, resource, context: dict | None = None):
         policy = self._policy_lookup(resource)
         return policy.authorize(actor, action, resource, context)
 
-    def allows(
-        self, actor, action, resource, context: typing.Optional[dict] = None
-    ) -> bool:
+    def allows(self, actor, action, resource, context: dict | None = None) -> bool:
         policy = self._policy_lookup(resource)
         return policy.allows(actor, action, resource, context)
 
-    def actions(self, actor, resource, context: typing.Optional[dict] = None):
+    def actions(self, actor, resource, context: dict | None = None):
         policy = self._policy_lookup(resource)
-        return policy.actions(actor, resource, context)
+        return policy.grants(actor, resource, context)
 
     def register_policy(self, policy: policies.Policy):
         if hasattr(policy, "__orig_class__"):
