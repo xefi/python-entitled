@@ -16,13 +16,28 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
+  publish:
 
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
-    - name: Build and publish to PyPI
-      uses: JRubics/poetry-publish@v2.0
+    - name: Set up Python
+      uses: actions/setup-python@v3
       with:
-        pypi_token: ${{ secrets.PYPI_API_TOKEN }}
+        python-version: "3.12"
+    - name: Install Pipx
+      run: |
+        apt update
+        apt install pipx
+        pipx ensurepath
+    - name: Install Poetry
+      run: |
+        pipx install poetry
+    - name: Publish
+      env:
+        PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+      run: |
+        poetry config pypi-token.pypi $PYPI_TOKEN
+        poetry publish --build
+        
