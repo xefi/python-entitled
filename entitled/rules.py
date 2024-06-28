@@ -36,6 +36,10 @@ class Rule(Generic[Resource]):
     def clear_registry(cls) -> None:
         cls._registry = {}
 
+    @classmethod
+    def get_rule(cls, name) -> "Rule | None":
+        return Rule._registry[name] if name in Rule._registry else None
+
     def __init__(self, name: str, rule_function: RuleProtocol[Resource]):
         if name in Rule._registry:
             raise ValueError(f"A rule identified by '{name}' already exists.")
@@ -85,10 +89,7 @@ class Rule(Generic[Resource]):
         resource: Resource,
         context: dict | None = None,
     ) -> bool:
-        try:
-            return self.authorize(actor, resource, context)
-        except exceptions.AuthorizationException:
-            return False
+        return self(actor, resource, context)
 
 
 def rule(name: str) -> Callable[[RuleProtocol], RuleProtocol]:

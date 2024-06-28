@@ -2,11 +2,6 @@ import dataclasses
 
 
 @dataclasses.dataclass
-class Role:
-    label: str
-
-
-@dataclasses.dataclass
 class Tenant:
     name: str
 
@@ -15,6 +10,7 @@ class Tenant:
 class User:
     name: str
     tenant: Tenant
+    roles: set[str]
 
 
 @dataclasses.dataclass

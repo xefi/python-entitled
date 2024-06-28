@@ -1,9 +1,9 @@
 """Grouping of authorization rules around a particular resource type"""
 
-from typing import Generic, TypeVar
+from typing import Callable, Generic, TypeVar
 
 from entitled import exceptions
-from entitled.rules import Rule
+from entitled.rules import Rule, RuleProtocol
 
 T = TypeVar("T")
 
@@ -26,21 +26,26 @@ class Policy(Generic[T]):
             rules = {}
 
         for action, rule in rules.items():
-            self.register(action, *rule)
+            self.__register(action, *rule)
 
-    def rule(self, action, rule):
-        rule_name = action if self.label is None else self.label + ":" + action
-        new_rule = Rule[T](rule_name, rule)
+    def rule(self, name: str) -> Callable[[RuleProtocol[T]], RuleProtocol[T]]:
+        def wrapped(func: RuleProtocol[T]):
+            rule_name = name
+            if self.label is not None:
+                rule_name = self.label + ":" + rule_name
+            new_rule = Rule[T](rule_name, func)
+            self.__register(name, new_rule)
+            return func
 
-        self.register(action, new_rule)
+        return wrapped
 
-    def register(self, action, *rules: Rule[T]):
+    def __register(self, action, *rules: Rule[T]):
         if action in self._registry:
             self._registry[action].append(*rules)
         else:
             self._registry[action] = [*rules]
 
-    def actions(self, actor, resource: T, context: dict | None = None):
+    def grants(self, actor, resource: T, context: dict | None = None):
 
         return filter(
             lambda action: self.allows(actor, action, resource, context),

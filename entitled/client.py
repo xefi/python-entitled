@@ -26,7 +26,7 @@ class Client:
 
     def actions(self, actor, resource, context: dict | None = None):
         policy = self._policy_lookup(resource)
-        return policy.actions(actor, resource, context)
+        return policy.grants(actor, resource, context)
 
     def register_policy(self, policy: policies.Policy):
         if hasattr(policy, "__orig_class__"):
