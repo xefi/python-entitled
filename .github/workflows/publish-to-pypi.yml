@@ -17,27 +17,30 @@ permissions:
 
 jobs:
   publish:
-
-    runs-on: ubuntu-latest
-
+    name: Build and publish package
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [3.12]
+        poetry-version: [1.8.3]
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    environment: release
+    permissions:
+      id-token: write
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python
       uses: actions/setup-python@v3
       with:
-        python-version: "3.12"
-    - name: Install Pipx
+        python-version: ${{ matrix.python-version }}
+    - name: Setup poetry
+      users: abatilo/actions-poetry@v2.0.0
+      with:
+        poetry-version: ${{ matrix.poetry-version }}
+    - name: Building package distribution
       run: |
-        apt update
-        apt install pipx
-        pipx ensurepath
-    - name: Install Poetry
-      run: |
-        pipx install poetry
-    - name: Publish
-      env:
-        PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
-      run: |
-        poetry config pypi-token.pypi $PYPI_TOKEN
-        poetry publish --build
-        
+        poetry version ${{ github.ref_name }}
+        poetry build
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
