@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "entitled"
-version = "0.1.0"
+version = "0.2rc1"
 description = "A library to make writing, enforcing and auditing your authorization policies a breeze"
 authors = ["Mathias Bigaignon <m.bigaignon@xefi.fr>"]
 readme = "README.md"
@@ -65,7 +65,7 @@ disable = [
     "use-symbolic-message-instead",
     "typevar-name-incorrect-variance",
     "missing-function-docstring",
-    "too-few-public-methods"
+    "too-few-public-methods",
 ]
 
 [tool.pylint.reports]
@@ -74,8 +74,21 @@ score = true
 evaluation = "max(0, 0 if fatal else 10.0 - ((float(5 * error + warning + refactor + convention) / statement) * 10))"
 
 [tool.pylint.classes]
-defining-attr-methods = ["__init__", "__new__", "setUp", "asyncSetUp", "__post_init__"]
-exclude-protected = ["_asdict", "_fields", "_replace", "_source", "_make", "os._exit"]
+defining-attr-methods = [
+    "__init__",
+    "__new__",
+    "setUp",
+    "asyncSetUp",
+    "__post_init__",
+]
+exclude-protected = [
+    "_asdict",
+    "_fields",
+    "_replace",
+    "_source",
+    "_make",
+    "os._exit",
+]
 valid-classmethod-first-arg = ["cls"]
 valid-metaclass-classmethod-first-arg = ["mcs"]
 
@@ -111,7 +124,16 @@ logging-modules = ["logging"]
 
 
 [tool.pylint.method_args]
-timeout-methods = ["requests.api.delete", "requests.api.get", "requests.api.head", "requests.api.options", "requests.api.patch", "requests.api.post", "requests.api.put", "requests.api.request"]
+timeout-methods = [
+    "requests.api.delete",
+    "requests.api.get",
+    "requests.api.head",
+    "requests.api.options",
+    "requests.api.patch",
+    "requests.api.post",
+    "requests.api.put",
+    "requests.api.request",
+]
 
 [tool.pylint.miscellaneous]
 notes = ["FIXME", "XXX", "TODO"]
@@ -137,8 +159,18 @@ spelling-ignore-comment-directives = "fmt: on,fmt: off,noqa:,noqa,nosec,isort:sk
 contextmanager-decorators = ["contextlib.contextmanager"]
 ignore-none = true
 ignore-on-opaque-inference = true
-ignored-checks-for-mixins = ["no-member", "not-async-context-manager", "not-context-manager", "attribute-defined-outside-init"]
-ignored-classes = ["optparse.Values", "thread._local", "_thread._local", "argparse.Namespace"]
+ignored-checks-for-mixins = [
+    "no-member",
+    "not-async-context-manager",
+    "not-context-manager",
+    "attribute-defined-outside-init",
+]
+ignored-classes = [
+    "optparse.Values",
+    "thread._local",
+    "_thread._local",
+    "argparse.Namespace",
+]
 missing-member-hint = true
 missing-member-hint-distance = 1
 missing-member-max-choices = 1
@@ -149,7 +181,13 @@ allow-global-unused-variables = true
 callbacks = ["cb_", "_cb"]
 dummy-variables-rgx = "_+$|(_[a-zA-Z0-9_]*[a-zA-Z0-9]+?$)|dummy|^ignored_|^unused_"
 ignored-argument-names = "_.*|^ignored_|^unused_"
-redefining-builtins-modules = ["six.moves", "past.builtins", "future.builtins", "builtins", "io"]
+redefining-builtins-modules = [
+    "six.moves",
+    "past.builtins",
+    "future.builtins",
+    "builtins",
+    "io",
+]
 
 [build-system]
 requires = ["poetry-core"]
