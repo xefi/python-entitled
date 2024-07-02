@@ -1,5 +1,4 @@
-![versions](https://img.shields.io/pypi/pyversions/pybadges.svg)
-![pypi](https://img.shields.io/pypi/v/pybadges.svg)
+![versions](https://img.shields.io/badge/python-3.12-blue.svg)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 An authorization library for Python.
