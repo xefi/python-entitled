@@ -39,10 +39,12 @@ class TestClientDecision:
         user2 = User("user2", tenant2, set(["user"]))
         resource1 = Resource("R1", user1, tenant1)
 
-        u1_grants = [g for g in client.grants(user1, resource1)]
-        u2_grants = [g for g in client.grants(user2, resource1)]
+        u1_grants = client.grants(user1, resource1)
+        u2_grants = client.grants(user2, resource1)
         assert "view" in u1_grants and "edit" in u1_grants
-        assert "view" not in u2_grants and "edit" not in u2_grants
+        assert u1_grants["view"] and u1_grants["edit"]
+        assert "view" in u2_grants and "edit" in u2_grants
+        assert not u2_grants["view"] and not u2_grants["edit"]
 
     def test_allows(self):
         client = Client(base_path="tests/fixtures")

@@ -1,3 +1,4 @@
+from entitled import policies
 from entitled.policies import Policy
 from entitled.rules import Rule
 from tests.fixtures.models import Tenant, User
@@ -76,7 +77,7 @@ class TestPolicyAuthorization:
         user1 = User(name="user1", tenant=tenant1, roles=set([admin_role]))
         user2 = User(name="user2", tenant=tenant1, roles=set([guest_role]))
 
-        assert ["is_member", "has_admin_role", "is_tenant_admin"] == [
-            item for item in policy.grants(user1, tenant1)
-        ]
-        assert ["is_member"] == [item for item in policy.grants(user2, tenant1)]
+        assert policy.grants(user1, tenant1)["is_member"]
+        assert policy.grants(user2, tenant1)["is_member"]
+        assert policy.grants(user1, tenant1)["is_tenant_admin"]
+        assert not policy.grants(user2, tenant1)["is_tenant_admin"]

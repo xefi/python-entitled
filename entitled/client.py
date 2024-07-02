@@ -3,7 +3,7 @@
 import importlib.util
 import pathlib
 import types
-import typing
+from typing import Any, Type
 
 from entitled import policies
 
@@ -12,7 +12,7 @@ class Client:
     "The Client class for decision-making centralization."
 
     def __init__(self, base_path: str | None = None):
-        self._policy_registrar: dict[typing.Type, policies.Policy] = {}
+        self._policy_registrar: dict[Type, policies.Policy] = {}
         self._load_path = None
         if base_path:
             self._load_path = pathlib.Path(base_path)
@@ -26,7 +26,7 @@ class Client:
         policy = self._policy_lookup(resource)
         return policy.allows(action, actor, resource, context)
 
-    def grants(self, actor, resource, context: dict | None = None):
+    def grants(self, actor, resource, context: dict | None = None) -> dict[Any, bool]:
         policy = self._policy_lookup(resource)
         return policy.grants(actor, resource, context)
 
