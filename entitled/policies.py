@@ -48,26 +48,26 @@ class Policy(Generic[T]):
     def grants(self, actor, resource: T, context: dict | None = None):
 
         return filter(
-            lambda action: self.allows(actor, action, resource, context),
+            lambda action: self.allows(action, actor, resource, context),
             self._registry.keys(),
         )
 
     def allows(
         self,
-        actor,
         action,
+        actor,
         resource: T,
         context: dict | None = None,
     ) -> bool:
         try:
-            return self.authorize(actor, action, resource, context)
+            return self.authorize(action, actor, resource, context)
         except exceptions.AuthorizationException:
             return False
 
     def authorize(
         self,
-        actor,
         action,
+        actor,
         resource: T,
         context: dict | None = None,
     ) -> bool:

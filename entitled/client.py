@@ -11,18 +11,20 @@ from entitled import policies
 class Client:
     "The Client class for decision-making centralization."
 
-    def __init__(self, base_path="policies"):
+    def __init__(self, base_path: str | None = None):
         self._policy_registrar: dict[typing.Type, policies.Policy] = {}
-        self._load_path = pathlib.Path(base_path)
-        self.load_policies_from_path(self._load_path)
+        self._load_path = None
+        if base_path:
+            self._load_path = pathlib.Path(base_path)
+            self.load_policies_from_path(self._load_path)
 
-    def authorize(self, actor, action, resource, context: dict | None = None):
+    def authorize(self, action, actor, resource, context: dict | None = None):
         policy = self._policy_lookup(resource)
-        return policy.authorize(actor, action, resource, context)
+        return policy.authorize(action, actor, resource, context)
 
-    def allows(self, actor, action, resource, context: dict | None = None) -> bool:
+    def allows(self, action, actor, resource, context: dict | None = None) -> bool:
         policy = self._policy_lookup(resource)
-        return policy.allows(actor, action, resource, context)
+        return policy.allows(action, actor, resource, context)
 
     def grants(self, actor, resource, context: dict | None = None):
         policy = self._policy_lookup(resource)
@@ -41,10 +43,12 @@ class Client:
             raise AttributeError(f"Policy {policy} is incorrectly defined")
 
     def reload_registrar(self):
-        self.load_policies_from_path(self._load_path)
+        if self._load_path is not None:
+            self.load_policies_from_path(self._load_path)
 
     def load_policies_from_path(self, path: pathlib.Path):
         for file_path in path.glob("*.py"):
+            print(file_path)
             mod_name = file_path.stem
             full_module_name = ".".join(file_path.parts[:-1] + (mod_name,))
             spec = importlib.util.spec_from_file_location(full_module_name, file_path)

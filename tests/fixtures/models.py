@@ -14,8 +14,7 @@ class User:
 
 
 @dataclasses.dataclass
-class Node:
+class Resource:
     name: str
     owner: User
     tenant: Tenant
-    parent: "Node | None" = None

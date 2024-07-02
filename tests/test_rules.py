@@ -93,7 +93,7 @@ class TestRuleCalls:
 
         new_tenant = Tenant("other_tenant")
         with pytest.raises(exceptions.AuthorizationException):
-            assert res.authorize(test_user, new_tenant)
+            res.authorize(test_user, new_tenant)
 
     def test_allows(self):
         tenant = Tenant("test_tenant")
