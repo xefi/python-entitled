@@ -24,11 +24,11 @@ class Client:
         policy = self._policy_lookup(resource)
         return policy.allows(actor, action, resource, context)
 
-    def actions(self, actor, resource, context: dict | None = None):
+    def grants(self, actor, resource, context: dict | None = None):
         policy = self._policy_lookup(resource)
         return policy.grants(actor, resource, context)
 
-    def register_policy(self, policy: policies.Policy):
+    def register(self, policy: policies.Policy):
         if hasattr(policy, "__orig_class__"):
             resource_type = getattr(policy, "__orig_class__").__args__[0]
             if resource_type not in self._policy_registrar:
@@ -63,7 +63,7 @@ class Client:
             attr = getattr(module, attribute_name)
             if isinstance(attr, policies.Policy):
                 try:
-                    self.register_policy(attr)
+                    self.register(attr)
                 except (ValueError, AttributeError):
                     pass
 

@@ -1,5 +1,3 @@
-from typing import Any
-
 from entitled.policies import Policy
 from entitled.rules import Rule
 from tests.fixtures.models import Tenant, User
@@ -19,7 +17,7 @@ class TestPolicyCreation:
 
         @policy.rule("is_member")
         def is_member(
-            actor: User, resource: Tenant, context: dict[str, Any] | None = None
+            actor: User, resource: Tenant, context: dict | None = None
         ) -> bool:
             return actor.tenant == resource
 
@@ -34,7 +32,7 @@ class TestPolicyCreation:
 
         @policy.rule("is_member")
         def is_member(
-            actor: User, resource: Tenant, context: dict[str, Any] | None = None
+            actor: User, resource: Tenant, context: dict | None = None
         ) -> bool:
             return actor.tenant == resource
 
@@ -54,19 +52,19 @@ class TestPolicyAuthorization:
 
         @policy.rule("is_member")
         def is_member(
-            actor: User, resource: Tenant, context: dict[str, Any] | None = None
+            actor: User, resource: Tenant, context: dict | None = None
         ) -> bool:
             return actor.tenant == resource
 
         @policy.rule("has_admin_role")
         def has_admin_role(
-            actor: User, resource: Tenant, context: dict[str, Any] | None = None
+            actor: User, resource: Tenant, context: dict | None = None
         ) -> bool:
             return "admin" in actor.roles
 
         @policy.rule("is_tenant_admin")
         def is_tenant_admin(
-            actor: User, resource: Tenant, context: dict[str, Any] | None = None
+            actor: User, resource: Tenant, context: dict | None = None
         ) -> bool:
             return is_member(actor, resource, context) and has_admin_role(
                 actor, resource, context
