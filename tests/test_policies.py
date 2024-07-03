@@ -1,6 +1,4 @@
-from entitled import policies
-from entitled.policies import Policy
-from entitled.rules import Rule
+from entitled import Policy, Rule
 from tests.fixtures.models import Tenant, User
 
 

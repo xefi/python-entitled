@@ -1,13 +1,9 @@
 from pathlib import Path
 
 import pytest
-from _pytest.pytester import pytester
 
-from entitled import exceptions
-from entitled.client import Client
-from entitled.rules import Rule
+from entitled import Client, Rule, exceptions
 from tests.fixtures.models import Resource, Tenant, User
-from tests.fixtures.policies import resource_policy, tenant_policy
 
 
 class TestClientCreation:

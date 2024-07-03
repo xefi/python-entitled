@@ -2,8 +2,8 @@ from typing import Any
 
 import pytest
 
-from entitled import exceptions
-from entitled.rules import Rule, rule
+from entitled import Rule, exceptions
+from entitled.rules import rule
 from tests.fixtures.models import Tenant, User
 
 
@@ -18,6 +18,11 @@ class TestRuleCreation:
             return actor.tenant == resource
 
         new_rule = Rule[Tenant]("is_member", is_member)
+
+        other_rule = Rule[Tenant](
+            "other_rule",
+            lambda actor, resource, context=None: actor.tenant == resource,
+        )
 
         assert Rule._registry["is_member"] == new_rule
 
