@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "entitled-example"
+version = "0.1.0"
+description = ""
+authors = ["Mathias Bigaignon <m.bigaignon@xefi.fr>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = {extras = ["all"], version = "^0.112.2"}
+entitled = "^0.3.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
