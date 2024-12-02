@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "entitled"
-version = "0.3.0"
+version = "0.4.0"
 description = "A library to make writing, enforcing and auditing your authorization policies a breeze"
 authors = ["Mathias Bigaignon <m.bigaignon@xefi.fr>"]
 readme = "README.md"
