@@ -39,14 +39,14 @@ class Policy(Generic[T]):
 
         return wrapped
 
-    def __register(self, action, *rules: Rule[T]):
+    def __register(self, action: str, *rules: Rule[T]):
         if action in self._registry:
             self._registry[action].append(*rules)
         else:
             self._registry[action] = [*rules]
 
     def grants(
-        self, actor, resource: T, context: dict | None = None
+        self, actor: Any, resource: T | type[T], context: dict[str, Any] | None = None
     ) -> dict[Any, bool]:
         return {
             action: self.allows(action, actor, resource, context)
@@ -55,10 +55,10 @@ class Policy(Generic[T]):
 
     def allows(
         self,
-        action,
-        actor,
-        resource: T,
-        context: dict | None = None,
+        action: str,
+        actor: Any,
+        resource: T | type[T],
+        context: dict[str, Any] | None = None,
     ) -> bool:
         try:
             return self.authorize(action, actor, resource, context)
@@ -67,10 +67,10 @@ class Policy(Generic[T]):
 
     def authorize(
         self,
-        action,
-        actor,
-        resource: T,
-        context: dict | None = None,
+        action: str,
+        actor: Any,
+        resource: T | type[T],
+        context: dict[str, Any] | None = None,
     ) -> bool:
         if action not in self._registry:
             raise exceptions.UndefinedAction(

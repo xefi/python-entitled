@@ -7,7 +7,7 @@ Resource can essentially be any entity in an application.
 Actors represents any entity that, in an application, can act upon a resource.
 """
 
-from typing import Any, Callable, Generic, Protocol, TypeVar
+from typing import Any, Callable, ClassVar, Generic, Protocol, TypeVar
 
 from entitled import exceptions
 
@@ -18,7 +18,10 @@ class RuleProtocol(Protocol[Resource]):
     """Defines valid functions for rules"""
 
     def __call__(
-        self, actor: Any, resource: Resource, context: dict[str, Any] | None = None
+        self,
+        actor: Any,
+        resource: Resource | type[Resource],
+        context: dict[str, Any] | None = None,
     ) -> bool: ...
 
 
@@ -30,14 +33,14 @@ class Rule(Generic[Resource]):
         rule_function (Callable): The underlying boolean function.
     """
 
-    _registry: dict[str, "Rule"] = {}
+    _registry: ClassVar[dict[str, "Rule[Any]"]] = {}
 
     @classmethod
     def clear_registry(cls) -> None:
         cls._registry = {}
 
     @classmethod
-    def get_rule(cls, name) -> "Rule | None":
+    def get_rule(cls, name: str) -> "Rule[Resource] | None":
         return Rule._registry[name] if name in Rule._registry else None
 
     def __init__(self, name: str, rule_function: RuleProtocol[Resource]):
@@ -50,34 +53,18 @@ class Rule(Generic[Resource]):
     def __call__(
         self,
         actor: Any,
-        resource: Resource,
-        context: dict | None = None,
+        resource: Resource | type[Resource],
+        context: dict[str, Any] | None = None,
     ) -> bool:
         if not context:
             context = {}
         return self.rule(actor, resource, context)
 
-    def __and__(self, rh_rule: "Rule[Resource]"):
-        return Rule(
-            f"{self.name}&{rh_rule.name}",
-            lambda actor, resource, context=None: (
-                self(actor, resource, context) and rh_rule(actor, resource, context)
-            ),
-        )
-
-    def __or__(self, rh_rule: "Rule[Resource]"):
-        return Rule(
-            f"{self.name}|{rh_rule.name}",
-            lambda actor, resource, context=None: (
-                self(actor, resource, context) or rh_rule(actor, resource, context)
-            ),
-        )
-
     def authorize(
         self,
         actor: Any,
-        resource: Resource,
-        context: dict | None = None,
+        resource: Resource | type[Resource],
+        context: dict[str, Any] | None = None,
     ) -> bool:
         if not self(actor, resource, context):
             raise exceptions.AuthorizationException("Unauthorized")
@@ -86,15 +73,15 @@ class Rule(Generic[Resource]):
     def allows(
         self,
         actor: Any,
-        resource: Resource,
-        context: dict | None = None,
+        resource: Resource | type[Resource],
+        context: dict[str, Any] | None = None,
     ) -> bool:
         return self(actor, resource, context)
 
 
-def rule(name: str) -> Callable[[RuleProtocol], RuleProtocol]:
-    def wrapped(func: RuleProtocol):
-        Rule(name, func)
+def rule(name: str) -> Callable[[RuleProtocol[Resource]], RuleProtocol[Resource]]:
+    def wrapped(func: RuleProtocol[Resource]):
+        _ = Rule[Resource](name, func)
         return func
 
     return wrapped

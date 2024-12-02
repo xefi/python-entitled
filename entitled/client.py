@@ -3,7 +3,7 @@
 import importlib.util
 import pathlib
 import types
-from typing import Any, Type
+from typing import Any
 
 from entitled import policies
 
@@ -12,25 +12,42 @@ class Client:
     "The Client class for decision-making centralization."
 
     def __init__(self, base_path: str | None = None):
-        self._policy_registrar: dict[Type, policies.Policy] = {}
+        self._policy_registrar: dict[type, policies.Policy[Any]] = {}
         self._load_path = None
         if base_path:
             self._load_path = pathlib.Path(base_path)
             self.load_policies_from_path(self._load_path)
 
-    def authorize(self, action, actor, resource, context: dict | None = None):
+    def authorize(
+        self,
+        action: str,
+        actor: Any,
+        resource: Any,
+        context: dict[str, Any] | None = None,
+    ) -> bool:
         policy = self._policy_lookup(resource)
         return policy.authorize(action, actor, resource, context)
 
-    def allows(self, action, actor, resource, context: dict | None = None) -> bool:
+    def allows(
+        self,
+        action: str,
+        actor: Any,
+        resource: Any,
+        context: dict[str, Any] | None = None,
+    ) -> bool:
         policy = self._policy_lookup(resource)
         return policy.allows(action, actor, resource, context)
 
-    def grants(self, actor, resource, context: dict | None = None) -> dict[Any, bool]:
+    def grants(
+        self,
+        actor: Any,
+        resource: Any,
+        context: dict[str, Any] | None = None,
+    ) -> dict[Any, bool]:
         policy = self._policy_lookup(resource)
         return policy.grants(actor, resource, context)
 
-    def register(self, policy: policies.Policy):
+    def register(self, policy: policies.Policy[Any]):
         if hasattr(policy, "__orig_class__"):
             resource_type = getattr(policy, "__orig_class__").__args__[0]
             if resource_type not in self._policy_registrar:
@@ -71,8 +88,10 @@ class Client:
                 except (ValueError, AttributeError):
                     pass
 
-    def _policy_lookup(self, resource) -> policies.Policy:
-        if type(resource) not in self._policy_registrar:
+    def _policy_lookup(self, resource: Any) -> policies.Policy[Any]:
+        lookup_key = resource if isinstance(resource, type) else type(resource)
+
+        if lookup_key not in self._policy_registrar:
             raise ValueError("No policy registered for this resource type")
 
-        return self._policy_registrar[type(resource)]
+        return self._policy_registrar[lookup_key]

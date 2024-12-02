@@ -1,3 +1,4 @@
+from typing import Any
 from entitled import Policy, Rule
 from tests.fixtures.models import Tenant, User
 
@@ -16,7 +17,9 @@ class TestPolicyCreation:
 
         @policy.rule("is_member")
         def is_member(
-            actor: User, resource: Tenant, context: dict | None = None
+            actor: User,
+            resource: Tenant | type[Tenant],
+            context: dict[str, Any] | None = None,
         ) -> bool:
             return actor.tenant == resource
 
@@ -49,6 +52,12 @@ class TestPolicyAuthorization:
     def test_list_grants(self):
         policy = Policy[Tenant]("tenant")
 
+        @policy.rule("can_create")
+        def can_create(
+            actor: User, resource: Tenant, context: dict | None = None
+        ) -> bool:
+            return True
+
         @policy.rule("is_member")
         def is_member(
             actor: User, resource: Tenant, context: dict | None = None
@@ -78,4 +87,6 @@ class TestPolicyAuthorization:
         assert policy.grants(user1, tenant1)["is_member"]
         assert policy.grants(user2, tenant1)["is_member"]
         assert policy.grants(user1, tenant1)["is_tenant_admin"]
+        assert policy.grants(user1, Tenant)["can_create"]
+        assert policy.grants(user2, Tenant)["can_create"]
         assert not policy.grants(user2, tenant1)["is_tenant_admin"]
