@@ -40,9 +40,7 @@ class Policy(Generic[T]):
         return wrapped
 
     def __register(self, action: str, *rules: Rule[T]):
-        if action in self._registry:
-            self._registry[action].append(*rules)
-        else:
+        if action not in self._registry:
             self._registry[action] = [*rules]
 
     def grants(

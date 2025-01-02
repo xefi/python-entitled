@@ -44,11 +44,16 @@ class Rule(Generic[Resource]):
         return Rule._registry[name] if name in Rule._registry else None
 
     def __init__(self, name: str, rule_function: RuleProtocol[Resource]):
-        if name in Rule._registry:
-            raise ValueError(f"A rule identified by '{name}' already exists.")
         self.name = name
         self.rule = rule_function
-        Rule._registry[name] = self
+        self.__register()
+
+    def __register(self) -> None:
+        if self.name in Rule._registry:
+            print(f"A rule identified by '{self.name}' already exists.")
+            return
+
+        Rule._registry[self.name] = self
 
     def __call__(
         self,
