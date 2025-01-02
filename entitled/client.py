@@ -43,7 +43,7 @@ class Client:
         actor: Any,
         resource: Any,
         context: dict[str, Any] | None = None,
-    ) -> dict[Any, bool]:
+    ) -> dict[str, bool]:
         policy = self._policy_lookup(resource)
         return policy.grants(actor, resource, context)
 

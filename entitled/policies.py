@@ -45,7 +45,7 @@ class Policy(Generic[T]):
 
     def grants(
         self, actor: Any, resource: T | type[T], context: dict[str, Any] | None = None
-    ) -> dict[Any, bool]:
+    ) -> dict[str, bool]:
         return {
             action: self.allows(action, actor, resource, context)
             for action in self._registry
