@@ -1,5 +1,7 @@
 """Grouping of authorization rules around a particular resource type"""
 
+import asyncio
+
 from typing import Any, Callable, Generic, TypeVar
 
 from entitled import exceptions
@@ -43,15 +45,15 @@ class Policy(Generic[T]):
         if action not in self._registry:
             self._registry[action] = [*rules]
 
-    def grants(
+    async def grants(
         self, actor: Any, resource: T | type[T], context: dict[str, Any] | None = None
     ) -> dict[str, bool]:
         return {
-            action: self.allows(action, actor, resource, context)
+            action: await self.allows(action, actor, resource, context)
             for action in self._registry
         }
 
-    def allows(
+    async def allows(
         self,
         action: str,
         actor: Any,
@@ -59,11 +61,11 @@ class Policy(Generic[T]):
         context: dict[str, Any] | None = None,
     ) -> bool:
         try:
-            return self.authorize(action, actor, resource, context)
+            return await self.authorize(action, actor, resource, context)
         except exceptions.AuthorizationException:
             return False
 
-    def authorize(
+    async def authorize(
         self,
         action: str,
         actor: Any,
@@ -75,7 +77,13 @@ class Policy(Generic[T]):
                 f"Action <{action}> undefined for this policy"
             )
 
-        if not any(rule(actor, resource, context) for rule in self._registry[action]):
+        if not any(
+            (
+                await asyncio.gather(
+                    *(rule(actor, resource, context) for rule in self._registry[action])
+                )
+            )
+        ):
             raise exceptions.AuthorizationException("Unauthorized")
 
         return True

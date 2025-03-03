@@ -18,7 +18,7 @@ class Client:
             self._load_path = pathlib.Path(base_path)
             self.load_policies_from_path(self._load_path)
 
-    def authorize(
+    async def authorize(
         self,
         action: str,
         actor: Any,
@@ -26,9 +26,9 @@ class Client:
         context: dict[str, Any] | None = None,
     ) -> bool:
         policy = self._policy_lookup(resource)
-        return policy.authorize(action, actor, resource, context)
+        return await policy.authorize(action, actor, resource, context)
 
-    def allows(
+    async def allows(
         self,
         action: str,
         actor: Any,
@@ -36,16 +36,16 @@ class Client:
         context: dict[str, Any] | None = None,
     ) -> bool:
         policy = self._policy_lookup(resource)
-        return policy.allows(action, actor, resource, context)
+        return await policy.allows(action, actor, resource, context)
 
-    def grants(
+    async def grants(
         self,
         actor: Any,
         resource: Any,
         context: dict[str, Any] | None = None,
     ) -> dict[str, bool]:
         policy = self._policy_lookup(resource)
-        return policy.grants(actor, resource, context)
+        return await policy.grants(actor, resource, context)
 
     def register(self, policy: policies.Policy[Any]):
         if hasattr(policy, "__orig_class__"):

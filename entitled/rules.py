@@ -7,14 +7,15 @@ Resource can essentially be any entity in an application.
 Actors represents any entity that, in an application, can act upon a resource.
 """
 
-from typing import Any, Callable, ClassVar, Generic, Protocol, TypeVar
+import inspect
+from typing import Any, Callable, ClassVar, Generic, Protocol, TypeVar, cast
 
 from entitled import exceptions
 
 Resource = TypeVar("Resource", contravariant=True)
 
 
-class RuleProtocol(Protocol[Resource]):
+class SyncRule(Protocol[Resource]):
     """Defines valid functions for rules"""
 
     def __call__(
@@ -23,6 +24,34 @@ class RuleProtocol(Protocol[Resource]):
         resource: Resource | type[Resource],
         context: dict[str, Any] | None = None,
     ) -> bool: ...
+
+
+class AsyncRule(Protocol[Resource]):
+    """Defines valid functions for rules"""
+
+    async def __call__(
+        self,
+        actor: Any,
+        resource: Resource | type[Resource],
+        context: dict[str, Any] | None = None,
+    ) -> bool: ...
+
+
+RuleProtocol = SyncRule[Resource] | AsyncRule[Resource]
+
+
+async def handle_rule(
+    func: AsyncRule[Resource] | SyncRule[Resource],
+    actor: Any,
+    resource: Resource | type[Resource],
+    context: dict[str, Any] | None = None,
+):
+    if inspect.iscoroutinefunction(func):
+        fn = cast(AsyncRule[Resource], func)
+        return await fn(actor, resource, context)
+    else:
+        fn = cast(SyncRule[Resource], func)
+        return fn(actor, resource, context)
 
 
 class Rule(Generic[Resource]):
@@ -55,7 +84,7 @@ class Rule(Generic[Resource]):
 
         Rule._registry[self.name] = self
 
-    def __call__(
+    async def __call__(
         self,
         actor: Any,
         resource: Resource | type[Resource],
@@ -63,25 +92,25 @@ class Rule(Generic[Resource]):
     ) -> bool:
         if not context:
             context = {}
-        return self.rule(actor, resource, context)
+        return await handle_rule(self.rule, actor, resource, context)
 
-    def authorize(
+    async def authorize(
         self,
         actor: Any,
         resource: Resource | type[Resource],
         context: dict[str, Any] | None = None,
     ) -> bool:
-        if not self(actor, resource, context):
+        if not await self(actor, resource, context):
             raise exceptions.AuthorizationException("Unauthorized")
         return True
 
-    def allows(
+    async def allows(
         self,
         actor: Any,
         resource: Resource | type[Resource],
         context: dict[str, Any] | None = None,
     ) -> bool:
-        return self(actor, resource, context)
+        return await self(actor, resource, context)
 
 
 def rule(name: str) -> Callable[[RuleProtocol[Resource]], RuleProtocol[Resource]]:
