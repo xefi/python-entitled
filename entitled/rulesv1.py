@@ -1,64 +1,37 @@
-from typing import Any, ClassVar, Protocol, TypeVar
+from typing import Any, Protocol, TypeVar
 
 
 Actor = TypeVar("Actor", contravariant=True)
 
 
 class RuleProto(Protocol[Actor]):
-    async def __call__(self, actor: Actor, *args: Any, **kwargs: Any) -> bool: ...
+    async def __call__(
+        self, actor: Actor, *args: Any, **kwargs: Any
+    ) -> bool | None: ...
 
 
 class Rule[Actor]:
-    _registry: ClassVar[dict[str, RuleProto[Any]]] = {}
-    _before_callback: RuleProto[Any] | None = None
+    def __init__(self, name: str, callable: RuleProto[Actor]) -> None:
+        self.name = name
+        self.callable = callable
+        self._before_callbacks: list[RuleProto[Actor]] = []
 
-    @classmethod
-    def define(cls, name: str, closure: RuleProto[Actor]) -> None:
-        cls._registry[name] = closure
+    def before(self, *rule: RuleProto[Actor]):
+        self._before_callbacks = list(rule)
 
-    @classmethod
-    def before(cls, rule: RuleProto[Actor] | None):
-        cls._before_callback = rule
-
-    @classmethod
     async def allows(
-        cls,
-        name: str,
+        self,
         actor: Actor,
         *args: Any,
         **kwargs: Any,
     ) -> bool:
-        if name in cls._registry:
-            return await cls._registry[name](actor, args, kwargs)
+        response = await self.callable(actor, args, kwargs)
+        return response if response is not None else False
 
-        return False
-
-    @classmethod
     async def denies(
-        cls,
-        name: str,
+        self,
         actor: Actor,
         *args: Any,
         **kwargs: Any,
     ) -> bool:
-        return not await cls.allows(name, actor)
-
-    @classmethod
-    async def any(
-        cls,
-        names: list[str],
-        actor: Actor,
-        *args: Any,
-        **kwargs: Any,
-    ) -> bool:
-        return any([await cls.allows(name, actor, args, kwargs) for name in names])
-
-    @classmethod
-    async def none(
-        cls,
-        names: list[str],
-        actor: Actor,
-        *args: Any,
-        **kwargs: Any,
-    ) -> bool:
-        return not await cls.any(names, actor, args, kwargs)
+        return not await self.allows(actor)
