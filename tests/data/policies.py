@@ -1,6 +1,6 @@
 from typing import Any
-from entitled.policies import Policy
-from tests.fixtures.models import Resource, Tenant, User
+from entitled.old_policies import Policy
+from tests.data.models import Resource, Tenant, User
 
 tenant_policy = Policy[Tenant]("tenant")
 

@@ -4,12 +4,13 @@ import dataclasses
 @dataclasses.dataclass
 class Tenant:
     name: str
+    owner: "User | None" = None
 
 
 @dataclasses.dataclass
 class User:
     name: str
-    tenant: Tenant
+    tenant: Tenant | None
     roles: set[str]
 
 

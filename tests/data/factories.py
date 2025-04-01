@@ -1,6 +1,6 @@
 import factory
 
-from tests.fixtures import models
+from tests.data import models
 
 
 class TenantFactory(factory.Factory):
