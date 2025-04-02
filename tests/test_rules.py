@@ -3,6 +3,7 @@ import pytest
 from entitled.exceptions import AuthorizationException
 from entitled.response import Err, Ok, Response
 from entitled.rules import Rule
+from tests.data.factories import TenantFactory, UserFactory
 from tests.data.models import User, Tenant
 
 pytestmark = pytest.mark.anyio
@@ -27,11 +28,11 @@ def test_define():
     assert rule.callable == is_member
 
 
-async def test_rule_allows():
-    tenant1 = Tenant("tenant1")
-    tenant2 = Tenant("tenant2")
-    user1 = User("user1", tenant1, set())
-    user2 = User("user2", None, set())
+async def test_allows():
+    tenant1 = TenantFactory()
+    tenant2 = TenantFactory()
+    user1 = UserFactory(tenant=tenant1)
+    user2 = UserFactory(tenant=tenant2)
     tenant2.owner = user2
 
     rule1 = Rule[User]("is_member", is_member)
@@ -49,10 +50,10 @@ async def test_rule_allows():
 
 
 async def test_authorize():
-    tenant1 = Tenant("tenant1")
-    tenant2 = Tenant("tenant2")
-    user1 = User("user1", tenant1, set())
-    user2 = User("user2", None, set())
+    tenant1 = TenantFactory()
+    tenant2 = TenantFactory()
+    user1 = UserFactory(tenant=tenant1)
+    user2 = UserFactory(tenant=tenant2)
     tenant2.owner = user2
 
     rule1 = Rule[User]("is_member", is_member)
@@ -67,16 +68,18 @@ async def test_authorize():
 
 
 async def test_inspect():
-    tenant1 = Tenant("tenant1")
-    tenant2 = Tenant("tenant2")
-    user1 = User("user1", tenant1, set())
-    user2 = User("user2", None, set())
+    tenant1 = TenantFactory()
+    tenant2 = TenantFactory()
+    user1 = UserFactory(tenant=tenant1)
+    user2 = UserFactory(tenant=tenant2)
     tenant2.owner = user2
 
     rule1 = Rule[User]("is_member", is_member)
     rule2 = Rule[User]("is_owner", is_owner)
 
-    assert (await rule1.inspect(user1, tenant1)).allowed()
-    assert (await rule1.inspect(user2, tenant1)).message() == "Unauthorized"
+    assert (await rule1.inspect(user1, tenant1, "blbl")).allowed()
+    assert (
+        await rule1.inspect(user2, tenant1, {"test": 1})
+    ).message() == "Unauthorized"
     assert (await rule2.inspect(user2, tenant2)).allowed()
     assert (await rule2.inspect(user1, tenant2)).message() == "Not owner on the tenant"

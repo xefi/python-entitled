@@ -1,5 +1,5 @@
 import pytest
-
+from entitled.client import Client
 from entitled.exceptions import AuthorizationException
 from entitled.policies import Policy
 from entitled.response import Err, Ok, Response
@@ -8,7 +8,7 @@ from tests.data.models import Tenant, User
 
 pytestmark = pytest.mark.anyio
 
-
+client = Client()
 policy = Policy[Tenant]()
 
 
@@ -38,32 +38,52 @@ tenant2 = TenantFactory()
 user1 = UserFactory(tenant=tenant1)
 user2 = UserFactory(tenant=tenant2)
 tenant2.owner = user2
+client.register_policy(policy)
 
 
 async def test_inspect():
-    res = await policy.inspect("is_member", user1, tenant1)
+    res = await client.inspect(
+        "is_member",
+        user1,
+        tenant1,
+    )
     assert res.allowed()
-    res = await policy.inspect("is_member", user2, tenant1)
-    assert not res.allowed()
-    res = await policy.inspect("is_owner", user1, tenant2, context="")
-    assert not res.allowed()
-    assert res.message() == "Not owner on the tenant"
+    res = await client.inspect(
+        "is_member",
+        user2,
+        tenant1,
+    )
+    assert res.message() == "Unauthorized"
 
 
 async def test_allows():
-    assert await policy.allows("is_member", user1, tenant1, context="ok")
-    assert await policy.denies("is_member", user2, tenant1)
-    assert await policy.allows("is_owner", user2, tenant2, context="ok")
-    assert await policy.denies("is_owner", user1, tenant2, context="ok")
+    assert await client.allows(
+        "is_member",
+        user1,
+        tenant1,
+    )
+    assert await client.denies(
+        "is_member",
+        user2,
+        tenant1,
+    )
 
 
 async def test_authorize():
-    assert await policy.authorize("is_member", user1, tenant1)
+    assert await client.authorize(
+        "is_member",
+        user1,
+        tenant1,
+    )
     with pytest.raises(AuthorizationException):
-        _ = await policy.authorize("is_member", user2, tenant1)
+        _ = await client.authorize(
+            "is_member",
+            user2,
+            tenant1,
+        )
 
 
 async def test_grants():
-    res = await policy.grants(user1, tenant1, context="ok")
+    res = await client.grants(user1, tenant1, context="ok")
     assert res["is_member"]
     assert not res["is_owner"]

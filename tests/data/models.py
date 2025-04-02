@@ -10,8 +10,8 @@ class Tenant:
 @dataclasses.dataclass
 class User:
     name: str
-    tenant: Tenant | None
-    roles: set[str]
+    tenant: Tenant | None = None
+    roles: set[str] = dataclasses.field(default_factory=set)
 
 
 @dataclasses.dataclass

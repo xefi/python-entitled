@@ -1,3 +1,4 @@
+import inspect
 from typing import Any, Literal, Protocol, TypeVar
 
 from entitled.exceptions import AuthorizationException
@@ -27,7 +28,25 @@ class Rule[Actor]:
         *args: Any,
         **kwargs: Any,
     ) -> Response | bool:
-        return await self.callable(actor, *args, **kwargs)
+        sig = inspect.signature(self.callable)
+        args_count = len(
+            [
+                p
+                for p in sig.parameters.values()
+                if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)
+            ]
+        )
+        valid_positionals = (actor,) + args[: args_count - 1]
+        valid_kwargs = {
+            k: v
+            for k, v in kwargs.items()
+            if k in sig.parameters
+            and sig.parameters[k].kind
+            in (inspect.Parameter.KEYWORD_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+        }
+        bound = sig.bind_partial(*valid_positionals, **valid_kwargs)
+
+        return await self.callable(*bound.args, **bound.kwargs)
 
     async def inspect(
         self,
