@@ -33,6 +33,7 @@ jobs:
         run: uv run bandit entitled
 
   test:
+    name: "Run test suite"
     strategy:
       fail-fast: false
       matrix:
