@@ -3,7 +3,7 @@
 from typing import Any, TypeVar
 
 from entitled import exceptions
-from entitled.response import Err, Ok, Response
+from entitled.response import Err, Response
 from entitled.rules import Rule, RuleProto
 
 T = TypeVar("T")

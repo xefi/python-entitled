@@ -8,6 +8,30 @@ permissions:
   contents: read
 
 jobs:
+  code-quality:
+    name: "Code QA"
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [3.12]
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.6.11"
+          python-version-file: "pyproject.toml"
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+      - name: Run ruff linter
+        run: uv run ruff check entitled
+      - name: Run ruff formater
+        run: uv run ruff format entitled
+      - name: Run bandit
+        run: uv run bandit entitled
+
   test:
     strategy:
       fail-fast: false
@@ -18,44 +42,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v3
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
         with:
-          python-version: ${{ matrix.python-version }}
-      - name: Setup Poetry
-        uses: abatilo/actions-poetry@v2.0.0
-        with:
-          poetry-version: ${{ matrix.poetry-version }}
+          version: "0.6.11"
+          python-version-file: "pyproject.toml"
       - name: Install dependencies
-        run: poetry install --with dev
+        run: uv sync --all-extras --dev
       - name: Run tests
-        run: poetry run pytest --cov=entitled --cov-report=xml tests/
-
-  code-quality:
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: [3.12]
-        poetry-version: [1.8.3]
-        os: [ubuntu-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v3
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Setup Poetry
-        uses: abatilo/actions-poetry@v2.0.0
-        with:
-          poetry-version: ${{ matrix.poetry-version }}
-      - name: Install dependencies
-        run: poetry install --with dev
-      - name: Run black
-        run: poetry run black . --check
-      - name: Run isort
-        run: poetry run isort . --check-only
-      - name: Run pylint
-        run: poetry run pylint entitled
-      - name: Run bandit
-        run: poetry run bandit entitled
+        run: uv run pytest --cov=entitled --cov-report=xml tests/

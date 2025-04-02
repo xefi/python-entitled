@@ -22,9 +22,6 @@ dev = [
     "uvloop>=0.21.0",
 ]
 
-[tool.isort]
-profile = "ruff"
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
