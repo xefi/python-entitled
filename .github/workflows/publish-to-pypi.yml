@@ -13,26 +13,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [3.12]
-        poetry-version: [1.8.3]
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     environment: release
     permissions:
       id-token: write
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python
-      uses: actions/setup-python@v3
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Setup poetry
-      uses: abatilo/actions-poetry@v2.0.0
-      with:
-        poetry-version: ${{ matrix.poetry-version }}
-    - name: Building package distribution
-      run: |
-        poetry version ${{ github.ref_name }}
-        poetry build
-    - name: Publish to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.6.11"
+          python-version-file: "pyproject.toml"
+      - name: Building package distribution
+        run: uv build
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
