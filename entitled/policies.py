@@ -1,11 +1,15 @@
-from typing import Any
-from entitled.rules import RuleProto
+import functools
+from typing import Any, Callable
+
+
+def rule(func: Callable[..., Any]):
+    @functools.wraps(func)
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        return await func(*args, **kwargs)
+
+    setattr(wrapper, "_is_rule", True)
+    return wrapper
 
 
 class Policy[T]:
-    def rule(self):
-        def wrapped(func: RuleProto[Any]):
-            func._is_rule = True
-            return func
-
-        return wrapped
+    pass
