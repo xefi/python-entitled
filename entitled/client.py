@@ -1,25 +1,52 @@
-import re
+from importlib import util
+from pathlib import Path
+import types
 from typing import Any, Literal
 
 from entitled.exceptions import AuthorizationException
 from entitled.policies import Policy
 from entitled.response import Err, Response
-from entitled.rules import Actor, Rule, RuleProto
 
 
 class Client:
-    def __init__(self):
-        self._policy_registry: dict[type, Policy[Any]] = {}
-        self._rule_registry: dict[str, Rule[Any]] = {}
+    load_path: Path | None = None
+    _policy_registry: dict[type, Policy[Any]]
 
-    def define_rule(self, name: str, callable: RuleProto[Actor]) -> Rule[Actor]:
-        rule = Rule(name, callable)
-        self._rule_registry[rule.name] = rule
-        return rule
+    def __init__(self, path: str | None = None):
+        self._policy_registry = dict()
+        if path is not None:
+            self.load_path = Path(path)
+            self.load_policies()
 
     def register_policy(self, policy: Policy[Any]):
         resource_type = getattr(policy, "__orig_class__").__args__[0]
         self._policy_registry[resource_type] = policy
+
+    def load_policies(self, path: Path | None = None):
+        path = path if path is not None else self.load_path
+        if path is None:
+            return
+        for file in path.glob("*.py"):
+            mod_name = file.stem
+            full_mod_name = ".".join(file.parts[:-1] + (mod_name,))
+            spec = util.spec_from_file_location(full_mod_name, file)
+            if spec is not None:
+                mod = util.module_from_spec(spec)
+                if spec.loader:
+                    try:
+                        spec.loader.exec_module(mod)
+                        self._register_from_module(mod)
+                    except Exception as e:
+                        raise e
+
+    def _register_from_module(self, mod: types.ModuleType):
+        for attr_name in dir(mod):
+            attr = getattr(mod, attr_name)
+            if isinstance(attr, Policy):
+                try:
+                    self.register_policy(attr)
+                except (ValueError, AttributeError):
+                    pass
 
     def _resolve_policy(self, resource: Any) -> Policy[Any] | None:
         lookup_key = resource if isinstance(resource, type) else type(resource)
