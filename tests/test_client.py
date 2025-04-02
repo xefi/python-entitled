@@ -1,69 +1,89 @@
-from pathlib import Path
-
 import pytest
+from entitled.client import Client
+from entitled.exceptions import AuthorizationException
+from entitled.policies import Policy
+from entitled.response import Err, Ok, Response
+from tests.data.factories import TenantFactory, UserFactory
+from tests.data.models import Tenant, User
 
-from entitled import Client, Rule, exceptions
-from tests.fixtures.models import Resource, Tenant, User
+pytestmark = pytest.mark.anyio
 
-
-class TestClientCreation:
-    def teardown_method(self):
-        Rule.clear_registry()
-
-    def test_create_client(self):
-        client = Client()
-        assert client._load_path is None
-        assert client._policy_registrar == {}
-
-    def test_create_client_with_loadpath(self):
-        client = Client(base_path="tests/fixtures")
-
-        assert client._load_path == Path("tests/fixtures")
-        assert len(client._policy_registrar.items()) == 2
+client = Client()
+policy = Policy[Tenant]()
 
 
-class TestClientDecision:
+@policy.rule
+async def is_member(
+    actor: User,
+    resource: Tenant,
+) -> bool:
+    return actor.tenant == resource
 
-    def teardown_method(self):
-        Rule.clear_registry()
 
-    def test_grants(self):
-        client = Client(base_path="tests/fixtures")
-        tenant1 = Tenant("tenant1")
-        tenant2 = Tenant("tenant2")
-        user1 = User("user1", tenant1, set(["user"]))
-        user2 = User("user2", tenant2, set(["user"]))
-        resource1 = Resource("R1", user1, tenant1)
+@policy.rule
+async def is_owner(
+    actor: User,
+    resource: Tenant,
+    context: str,
+) -> Response:
+    return (
+        Ok()
+        if len(context) > 0 and resource.owner == actor
+        else Err("Not owner on the tenant")
+    )
 
-        u1_grants = client.grants(user1, resource1)
-        u2_grants = client.grants(user2, resource1)
-        assert "view" in u1_grants and "edit" in u1_grants
-        assert u1_grants["view"] and u1_grants["edit"]
-        assert "view" in u2_grants and "edit" in u2_grants
-        assert not u2_grants["view"] and not u2_grants["edit"]
 
-    def test_allows(self):
-        client = Client(base_path="tests/fixtures")
-        tenant1 = Tenant("tenant1")
-        tenant2 = Tenant("tenant2")
-        user1 = User("user1", tenant1, set(["user"]))
-        user2 = User("user2", tenant2, set(["user"]))
-        resource1 = Resource("R1", user1, tenant1)
+tenant1 = TenantFactory()
+tenant2 = TenantFactory()
+user1 = UserFactory(tenant=tenant1)
+user2 = UserFactory(tenant=tenant2)
+tenant2.owner = user2
+client.register_policy(policy)
 
-        assert client.allows("edit", user1, resource1)
-        assert not client.allows("edit", user2, resource1)
-        assert not client.allows("move", user2, resource1)
 
-    def test_authorize(self):
-        client = Client(base_path="tests/fixtures")
-        tenant1 = Tenant("tenant1")
-        tenant2 = Tenant("tenant2")
-        user1 = User("user1", tenant1, set(["user"]))
-        user2 = User("user2", tenant2, set(["user"]))
-        resource1 = Resource("R1", user1, tenant1)
+async def test_inspect():
+    res = await client.inspect(
+        "is_member",
+        user1,
+        tenant1,
+    )
+    assert res.allowed()
+    res = await client.inspect(
+        "is_member",
+        user2,
+        tenant1,
+    )
+    assert res.message() == "Unauthorized"
 
-        assert client.authorize("edit", user1, resource1)
-        with pytest.raises(exceptions.AuthorizationException):
-            client.authorize("edit", user2, resource1)
-        with pytest.raises(exceptions.UndefinedAction):
-            client.authorize("move", user2, resource1)
+
+async def test_allows():
+    assert await client.allows(
+        "is_member",
+        user1,
+        tenant1,
+    )
+    assert await client.denies(
+        "is_member",
+        user2,
+        tenant1,
+    )
+
+
+async def test_authorize():
+    assert await client.authorize(
+        "is_member",
+        user1,
+        tenant1,
+    )
+    with pytest.raises(AuthorizationException):
+        _ = await client.authorize(
+            "is_member",
+            user2,
+            tenant1,
+        )
+
+
+async def test_grants():
+    res = await client.grants(user1, tenant1, context="ok")
+    assert res["is_member"]
+    assert not res["is_owner"]

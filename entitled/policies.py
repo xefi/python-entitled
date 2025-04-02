@@ -1,81 +1,93 @@
 """Grouping of authorization rules around a particular resource type"""
 
-from typing import Any, Callable, Generic, TypeVar
+from typing import Any, TypeVar
 
 from entitled import exceptions
-from entitled.rules import Rule, RuleProtocol
+from entitled.response import Err, Ok, Response
+from entitled.rules import Rule, RuleProto
 
 T = TypeVar("T")
 
 
-class Policy(Generic[T]):
+class Policy[T]:
     """A grouping of rules refering the given resource type."""
+
+    _registry: dict[str, Rule[Any]]
 
     def __init__(
         self,
-        label: str | None = None,
-        rules: dict[str, list[Rule[T]]] | None = None,
+        rules: dict[str, Rule[Any]] | None = None,
     ):
-        self._registry: dict[
-            str,
-            list[Rule[T]],
-        ] = {}
-        self.label = label
+        self._registry = {}
 
         if not rules:
             rules = {}
 
         for action, rule in rules.items():
-            self.__register(action, *rule)
+            self.register(action, *rule)
 
-    def rule(self, name: str) -> Callable[[RuleProtocol[T]], RuleProtocol[T]]:
-        def wrapped(func: RuleProtocol[T]):
-            rule_name = name
-            if self.label is not None:
-                rule_name = self.label + ":" + rule_name
-            new_rule = Rule[T](rule_name, func)
-            self.__register(name, new_rule)
-            return func
+    def rule(self, func: RuleProto[Any]):
+        rule_name = f"{func.__name__}"
+        new_rule = Rule[T](rule_name, func)
+        self.register(rule_name, new_rule)
+        return func
 
-        return wrapped
+    def register(self, action: str, rule: Rule[T]):
+        self._registry[action] = rule
 
-    def __register(self, action: str, *rules: Rule[T]):
+    async def inspect(
+        self,
+        action: str,
+        actor: Any,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Response:
         if action not in self._registry:
-            self._registry[action] = [*rules]
+            return Err(f"Action <{action}> undefined for this policy")
+        return await self._registry[action].inspect(actor, *args, **kwargs)
 
-    def grants(
-        self, actor: Any, resource: T | type[T], context: dict[str, Any] | None = None
+    async def allows(
+        self,
+        action: str,
+        actor: Any,
+        *args: Any,
+        **kwargs: Any,
+    ) -> bool:
+        return (await self.inspect(action, actor, *args, **kwargs)).allowed()
+
+    async def denies(
+        self,
+        action: str,
+        actor: Any,
+        *args: Any,
+        **kwargs: Any,
+    ) -> bool:
+        return not (await self.inspect(action, actor, *args, **kwargs)).allowed()
+
+    async def authorize(
+        self,
+        action: str,
+        actor: Any,
+        *args: Any,
+        **kwargs: Any,
+    ) -> bool:
+        res = await self.inspect(action, actor, *args, **kwargs)
+        if not res.allowed():
+            raise exceptions.AuthorizationException(res.message())
+        return True
+
+    async def grants(
+        self,
+        actor: Any,
+        *args: Any,
+        **kwargs: Any,
     ) -> dict[str, bool]:
         return {
-            action: self.allows(action, actor, resource, context)
+            action: await self.allows(
+                action,
+                actor,
+                *args,
+                **kwargs,
+            )
             for action in self._registry
         }
-
-    def allows(
-        self,
-        action: str,
-        actor: Any,
-        resource: T | type[T],
-        context: dict[str, Any] | None = None,
-    ) -> bool:
-        try:
-            return self.authorize(action, actor, resource, context)
-        except exceptions.AuthorizationException:
-            return False
-
-    def authorize(
-        self,
-        action: str,
-        actor: Any,
-        resource: T | type[T],
-        context: dict[str, Any] | None = None,
-    ) -> bool:
-        if action not in self._registry:
-            raise exceptions.UndefinedAction(
-                f"Action <{action}> undefined for this policy"
-            )
-
-        if not any(rule(actor, resource, context) for rule in self._registry[action]):
-            raise exceptions.AuthorizationException("Unauthorized")
-
-        return True

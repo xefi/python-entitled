@@ -1,92 +1,91 @@
-"""Basic building block of the Entitled library.
+import inspect
+from typing import Any, Literal, Protocol, TypeVar
 
-Rules are essentially wrappers around boolean functions that determines a relationship
-between an actor and a resourc.
-
-Resource can essentially be any entity in an application.
-Actors represents any entity that, in an application, can act upon a resource.
-"""
-
-from typing import Any, Callable, ClassVar, Generic, Protocol, TypeVar
-
-from entitled import exceptions
-
-Resource = TypeVar("Resource", contravariant=True)
+from entitled.exceptions import AuthorizationException
+from entitled.response import Err, Ok, Response
 
 
-class RuleProtocol(Protocol[Resource]):
-    """Defines valid functions for rules"""
-
-    def __call__(
-        self,
-        actor: Any,
-        resource: Resource | type[Resource],
-        context: dict[str, Any] | None = None,
-    ) -> bool: ...
+Actor = TypeVar("Actor", contravariant=True)
 
 
-class Rule(Generic[Resource]):
-    """Base class for rules
+class RuleProto(Protocol[Actor]):
+    async def __call__(
+        self, actor: Actor, *args: Any, **kwargs: Any
+    ) -> Response | bool: ...
 
-    Args:
-        name (str): The name given to this rule.
-        rule_function (Callable): The underlying boolean function.
-    """
 
-    _registry: ClassVar[dict[str, "Rule[Any]"]] = {}
+class Rule[Actor]:
+    name: str
+    callable: RuleProto[Actor]
 
-    @classmethod
-    def clear_registry(cls) -> None:
-        cls._registry = {}
-
-    @classmethod
-    def get_rule(cls, name: str) -> "Rule[Resource] | None":
-        return Rule._registry[name] if name in Rule._registry else None
-
-    def __init__(self, name: str, rule_function: RuleProtocol[Resource]):
+    def __init__(self, name: str, callable: RuleProto[Actor]) -> None:
         self.name = name
-        self.rule = rule_function
-        self.__register()
+        self.callable = callable
 
-    def __register(self) -> None:
-        if self.name in Rule._registry:
-            print(f"A rule identified by '{self.name}' already exists.")
-            return
-
-        Rule._registry[self.name] = self
-
-    def __call__(
+    async def __call__(
         self,
-        actor: Any,
-        resource: Resource | type[Resource],
-        context: dict[str, Any] | None = None,
-    ) -> bool:
-        if not context:
-            context = {}
-        return self.rule(actor, resource, context)
+        actor: Actor,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Response | bool:
+        sig = inspect.signature(self.callable)
+        args_count = len(
+            [
+                p
+                for p in sig.parameters.values()
+                if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)
+            ]
+        )
+        valid_positionals = (actor,) + args[: args_count - 1]
+        valid_kwargs = {
+            k: v
+            for k, v in kwargs.items()
+            if k in sig.parameters
+            and sig.parameters[k].kind
+            in (inspect.Parameter.KEYWORD_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+        }
+        bound = sig.bind_partial(*valid_positionals, **valid_kwargs)
 
-    def authorize(
+        return await self.callable(*bound.args, **bound.kwargs)
+
+    async def inspect(
         self,
-        actor: Any,
-        resource: Resource | type[Resource],
-        context: dict[str, Any] | None = None,
+        actor: Actor,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Response:
+        result = await self(actor, *args, **kwargs)
+        match result:
+            case True:
+                return Ok()
+            case False:
+                return Err("Unauthorized")
+            case _:
+                return result
+
+    async def allows(
+        self,
+        actor: Actor,
+        *args: Any,
+        **kwargs: Any,
     ) -> bool:
-        if not self(actor, resource, context):
-            raise exceptions.AuthorizationException("Unauthorized")
+        return (await self.inspect(actor, *args, **kwargs)).allowed()
+
+    async def denies(
+        self,
+        actor: Actor,
+        *args: Any,
+        **kwargs: Any,
+    ) -> bool:
+        return not await self.allows(actor, *args, **kwargs)
+
+    async def authorize(
+        self,
+        actor: Actor,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Literal[True]:
+        res = await self.inspect(actor, *args, **kwargs)
+        if not res.allowed():
+            raise AuthorizationException(res.message())
         return True
-
-    def allows(
-        self,
-        actor: Any,
-        resource: Resource | type[Resource],
-        context: dict[str, Any] | None = None,
-    ) -> bool:
-        return self(actor, resource, context)
-
-
-def rule(name: str) -> Callable[[RuleProtocol[Resource]], RuleProtocol[Resource]]:
-    def wrapped(func: RuleProtocol[Resource]):
-        _ = Rule[Resource](name, func)
-        return func
-
-    return wrapped

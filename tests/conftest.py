@@ -1,3 +1,1 @@
-import pytest
-
-pytest_plugins = ["tests.fixtures.fixtures"]
+pytest_plugins = ["tests.fixtures"]

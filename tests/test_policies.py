@@ -1,92 +1,69 @@
-from typing import Any
-from entitled import Policy, Rule
-from tests.fixtures.models import Tenant, User
+import pytest
+
+from entitled.exceptions import AuthorizationException
+from entitled.policies import Policy
+from entitled.response import Err, Ok, Response
+from tests.data.factories import TenantFactory, UserFactory
+from tests.data.models import Tenant, User
+
+pytestmark = pytest.mark.anyio
 
 
-class TestPolicyCreation:
-    def teardown_method(self):
-        Rule.clear_registry()
-
-    def test_policy_creation(self):
-        policy = Policy("my_policy")
-        assert policy.label == "my_policy"
-        assert policy._registry == {}
-
-    def test_register_rule_decorator(self):
-        policy = Policy[Tenant]("my_policy")
-
-        @policy.rule("is_member")
-        def is_member(
-            actor: User,
-            resource: Tenant | type[Tenant],
-            context: dict[str, Any] | None = None,
-        ) -> bool:
-            return actor.tenant == resource
-
-        assert policy.label == "my_policy"
-        assert policy._registry["is_member"][0].name == "my_policy:is_member"
-        rule = Rule.get_rule("my_policy:is_member")
-        assert rule is not None
-        assert not rule.name == "is_member"
-
-    def test_register_rule_function(self):
-        policy = Policy[Tenant]("my_policy")
-
-        @policy.rule("is_member")
-        def is_member(
-            actor: User, resource: Tenant, context: dict | None = None
-        ) -> bool:
-            return actor.tenant == resource
-
-        assert policy.label == "my_policy"
-        assert policy._registry["is_member"][0].name == "my_policy:is_member"
-        rule = Rule.get_rule("my_policy:is_member")
-        assert rule is not None
-        assert not rule.name == "is_member"
+policy = Policy[Tenant]()
 
 
-class TestPolicyAuthorization:
-    def teardown_method(self):
-        Rule.clear_registry()
+@policy.rule
+async def is_member(
+    actor: User,
+    resource: Tenant,
+) -> bool:
+    return actor.tenant == resource
 
-    def test_list_grants(self):
-        policy = Policy[Tenant]("tenant")
 
-        @policy.rule("can_create")
-        def can_create(
-            actor: User, resource: Tenant, context: dict | None = None
-        ) -> bool:
-            return True
+@policy.rule
+async def is_owner(
+    actor: User,
+    resource: Tenant,
+    context: str,
+) -> Response:
+    return (
+        Ok()
+        if len(context) > 0 and resource.owner == actor
+        else Err("Not owner on the tenant")
+    )
 
-        @policy.rule("is_member")
-        def is_member(
-            actor: User, resource: Tenant, context: dict | None = None
-        ) -> bool:
-            return actor.tenant == resource
 
-        @policy.rule("has_admin_role")
-        def has_admin_role(
-            actor: User, resource: Tenant, context: dict | None = None
-        ) -> bool:
-            return "admin" in actor.roles
+tenant1 = TenantFactory()
+tenant2 = TenantFactory()
+user1 = UserFactory(tenant=tenant1)
+user2 = UserFactory(tenant=tenant2)
+tenant2.owner = user2
 
-        @policy.rule("is_tenant_admin")
-        def is_tenant_admin(
-            actor: User, resource: Tenant, context: dict | None = None
-        ) -> bool:
-            return is_member(actor, resource, context) and has_admin_role(
-                actor, resource, context
-            )
 
-        tenant1 = Tenant(name="tenant1")
-        admin_role = "admin"
-        guest_role = "user"
-        user1 = User(name="user1", tenant=tenant1, roles=set([admin_role]))
-        user2 = User(name="user2", tenant=tenant1, roles=set([guest_role]))
+async def test_inspect():
+    res = await policy.inspect("is_member", user1, tenant1)
+    assert res.allowed()
+    res = await policy.inspect("is_member", user2, tenant1)
+    assert not res.allowed()
+    res = await policy.inspect("is_owner", user1, tenant2, context="")
+    assert not res.allowed()
+    assert res.message() == "Not owner on the tenant"
 
-        assert policy.grants(user1, tenant1)["is_member"]
-        assert policy.grants(user2, tenant1)["is_member"]
-        assert policy.grants(user1, tenant1)["is_tenant_admin"]
-        assert policy.grants(user1, Tenant)["can_create"]
-        assert policy.grants(user2, Tenant)["can_create"]
-        assert not policy.grants(user2, tenant1)["is_tenant_admin"]
+
+async def test_allows():
+    assert await policy.allows("is_member", user1, tenant1, context="ok")
+    assert await policy.denies("is_member", user2, tenant1)
+    assert await policy.allows("is_owner", user2, tenant2, context="ok")
+    assert await policy.denies("is_owner", user1, tenant2, context="ok")
+
+
+async def test_authorize():
+    assert await policy.authorize("is_member", user1, tenant1)
+    with pytest.raises(AuthorizationException):
+        _ = await policy.authorize("is_member", user2, tenant1)
+
+
+async def test_grants():
+    res = await policy.grants(user1, tenant1, context="ok")
+    assert res["is_member"]
+    assert not res["is_owner"]

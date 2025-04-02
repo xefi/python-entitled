@@ -1,111 +1,85 @@
-from typing import Any
-
 import pytest
 
-from entitled import Rule, exceptions
-from entitled.rules import rule
-from tests.fixtures.models import Tenant, User
+from entitled.exceptions import AuthorizationException
+from entitled.response import Err, Ok, Response
+from entitled.rules import Rule
+from tests.data.factories import TenantFactory, UserFactory
+from tests.data.models import User, Tenant
+
+pytestmark = pytest.mark.anyio
 
 
-class TestRuleCreation:
-    def teardown_method(self):
-        Rule.clear_registry()
-
-    def test_create_with_constructor(self):
-        def is_member(
-            actor: User, resource: Tenant, context: dict[str, Any] | None = None
-        ) -> bool:
-            return actor.tenant == resource
-
-        new_rule = Rule[Tenant]("is_member", is_member)
-
-        other_rule = Rule[Tenant](
-            "other_rule",
-            lambda actor, resource, context=None: actor.tenant == resource,
-        )
-
-        assert Rule._registry["is_member"] == new_rule
-
-    def test_create_with_decorator(self):
-        @rule("is_member")
-        def is_member(
-            actor: User, resource: Tenant, context: dict[str, Any] | None = None
-        ) -> bool:
-            return actor.tenant == resource
-
-        assert Rule._registry["is_member"].name == "is_member"
-
-    def test_create_with_same_name(self):
-        @rule("is_member")
-        def is_member(
-            actor: User, resource: Tenant, context: dict[str, Any] | None = None
-        ) -> bool:
-            return actor.tenant == resource
-
-        with pytest.raises(ValueError):
-
-            @rule("is_member")
-            def another_rule(
-                actor: User, resource: Tenant, context: dict[str, Any] | None = None
-            ) -> bool:
-                return True
+async def is_member(
+    actor: User,
+    resource: Tenant,
+) -> bool:
+    return actor.tenant == resource
 
 
-class TestReadRules:
-    def setup_method(self):
-        @rule("is_member")
-        def is_member(
-            actor: User, resource: Tenant, context: dict[str, Any] | None = None
-        ) -> bool:
-            return actor.tenant == resource
-
-    def teardown_method(self):
-        Rule.clear_registry()
-
-    def test_fetch_registered_rule(self):
-        res = Rule.get_rule("is_member")
-        assert res is not None
-        assert res.name == "is_member"
-
-    def test_fetch_non_registered_rule(self):
-        res = Rule.get_rule("is_admin")
-        assert res is None
+async def is_owner(
+    actor: User,
+    resource: Tenant,
+) -> Response:
+    return Ok() if resource.owner == actor else Err("Not owner on the tenant")
 
 
-class TestRuleCalls:
-    def setup_method(self):
-        @rule("is_member")
-        def is_member(
-            actor: User, resource: Tenant, context: dict[str, Any] | None = None
-        ) -> bool:
-            return actor.tenant == resource
+def test_define():
+    rule = Rule[User]("is_member", is_member)
+    assert rule.callable == is_member
 
-    def teardown_method(self):
-        Rule.clear_registry()
 
-    def test_rule_call(self):
-        tenant = Tenant("test_tenant")
-        res = Rule.get_rule("is_member")
-        assert res is not None
-        assert res(User("test_user", tenant, set()), tenant)
+async def test_allows():
+    tenant1 = TenantFactory()
+    tenant2 = TenantFactory()
+    user1 = UserFactory(tenant=tenant1)
+    user2 = UserFactory(tenant=tenant2)
+    tenant2.owner = user2
 
-    def test_authorize(self):
-        tenant = Tenant("test_tenant")
-        test_user = User("test_user", tenant, set())
-        res = Rule.get_rule("is_member")
-        assert res is not None
-        assert res.authorize(test_user, tenant)
+    rule1 = Rule[User]("is_member", is_member)
+    rule2 = Rule[User]("is_owner", is_owner)
 
-        new_tenant = Tenant("other_tenant")
-        with pytest.raises(exceptions.AuthorizationException):
-            res.authorize(test_user, new_tenant)
+    assert await rule1.allows(user1, tenant1)
+    assert not await rule1.denies(user1, tenant1)
+    assert not await rule1.allows(user2, tenant1)
+    assert await rule1.denies(user2, tenant1)
 
-    def test_allows(self):
-        tenant = Tenant("test_tenant")
-        test_user = User("test_user", tenant, set())
-        res = Rule.get_rule("is_member")
-        assert res is not None
-        assert res.allows(test_user, tenant)
+    assert not await rule2.allows(user1, tenant2)
+    assert await rule2.denies(user1, tenant2)
+    assert await rule2.allows(user2, tenant2)
+    assert not await rule2.denies(user2, tenant2)
 
-        new_tenant = Tenant("other_tenant")
-        assert not res.allows(test_user, new_tenant)
+
+async def test_authorize():
+    tenant1 = TenantFactory()
+    tenant2 = TenantFactory()
+    user1 = UserFactory(tenant=tenant1)
+    user2 = UserFactory(tenant=tenant2)
+    tenant2.owner = user2
+
+    rule1 = Rule[User]("is_member", is_member)
+    rule2 = Rule[User]("is_owner", is_owner)
+
+    assert await rule1.authorize(user1, tenant1)
+    with pytest.raises(AuthorizationException):
+        _ = await rule1.authorize(user2, tenant1)
+    with pytest.raises(AuthorizationException):
+        _ = await rule2.authorize(user1, tenant2)
+    assert await rule2.authorize(user2, tenant2)
+
+
+async def test_inspect():
+    tenant1 = TenantFactory()
+    tenant2 = TenantFactory()
+    user1 = UserFactory(tenant=tenant1)
+    user2 = UserFactory(tenant=tenant2)
+    tenant2.owner = user2
+
+    rule1 = Rule[User]("is_member", is_member)
+    rule2 = Rule[User]("is_owner", is_owner)
+
+    assert (await rule1.inspect(user1, tenant1, "blbl")).allowed()
+    assert (
+        await rule1.inspect(user2, tenant1, {"test": 1})
+    ).message() == "Unauthorized"
+    assert (await rule2.inspect(user2, tenant2)).allowed()
+    assert (await rule2.inspect(user1, tenant2)).message() == "Not owner on the tenant"
